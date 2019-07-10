@@ -106,9 +106,9 @@ type CTFactors struct {
 var (
 	CTTypes = map[string]CTFactors{
 		"YHDC_SCT013": CTFactors{
-			CurrentResistor:       7.07107,
+			CurrentResistor:       7.5,
 			CurrentClampFactor:    0.05,
-			OffsetCurrent:         1.049084906,
+			OffsetCurrent:         1.032,
 			OffsetVoltage:         1.0,
 			PowerCorrectionFactor: 0.019413,
 		},
@@ -422,8 +422,8 @@ func ReadCurrent(d *i2c.Device, c *Config, phase Phase) (current float64) {
 		}
 		// fmt.Println("CalibrationfactorI: ", phase, "  ", c.CalibrationfactorI[phase])
 		oc := CTTypes[c.CTType[phase]].OffsetCurrent
-		outcome = outcome - 7300
-		current = ((((outcome * 0.3535) / rmsFactor) / cr) / ccf) * 100.0 * oc * c.CalibrationfactorI[phase]
+		//outcome = outcome - 7300
+		current = ((((outcome * 0.35355339) / rmsFactor) / cr) / ccf) * 100.0 * oc * c.CalibrationfactorI[phase]
 	} else {
 		current = 0.0
 	}
