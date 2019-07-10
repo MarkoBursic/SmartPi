@@ -322,10 +322,33 @@ func InitADE7878(c *Config) (*i2c.Device, error) {
 		panic(err)
 	}
 
-	// err = WriteRegister(d, "AIRMSOS", 0x11, 0x47, 0xE9)
-	// if err != nil {
-	// 	panic(err)
-	// }
+	err = WriteRegister(d, "AIRMSOS", 0x0F, 0xFD, 0x40, 0xE0)
+	if err != nil {
+		panic(err)
+	
+	
+	time.Sleep(10 * time.Millisecond)
+	
+	err = WriteRegister(d, "BIRMSOS", 0x0F, 0xFD, 0x40, 0xE0)
+	if err != nil {
+		panic(err)
+	}	
+	
+	time.Sleep(10 * time.Millisecond)
+	
+	err = WriteRegister(d, "CIRMSOS", 0x0F, 0xFD, 0x40, 0xE0)
+	if err != nil {
+		panic(err)
+	}
+	
+	time.Sleep(10 * time.Millisecond)
+	
+	err = WriteRegister(d, "NIRMSOS", 0x0F, 0xFD, 0x40, 0xE0)
+	if err != nil {
+		panic(err)
+	}
+	
+	time.Sleep(10 * time.Millisecond)
 
 	// Line cycle mode
 	// 0xE702 LCYCMODE
