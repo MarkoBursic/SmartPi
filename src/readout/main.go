@@ -89,12 +89,12 @@ func pollSmartPi(config *smartpi.Config, device *i2c.Device) {
 	accumulator := makeReadoutAccumulator()
 	i := 0
 
-	tick := time.Tick(time.Duration(1000/config.Samplerate) * time.Millisecond)
+	tick := time.Tick(time.Duration(1000) * time.Millisecond)
 
 	for {
 		readouts := makeReadout()
 		// Restart the accumulator loop every 60 seconds.
-		if i > (60*config.Samplerate - 1) {
+		if i > (config.Samplerate - 1) {
 			i = 0
 			accumulator = makeReadoutAccumulator()
 		}
@@ -103,21 +103,21 @@ func pollSmartPi(config *smartpi.Config, device *i2c.Device) {
 
 		// Update readouts and the accumlator.
 		smartpi.ReadPhase(device, config, smartpi.PhaseN, &readouts)
-		accumulator.Current[smartpi.PhaseN] += readouts.Current[smartpi.PhaseN] / (60.0 * float64(config.Samplerate))
+		accumulator.Current[smartpi.PhaseN] += readouts.Current[smartpi.PhaseN] / (float64(config.Samplerate))
 		for _, p = range smartpi.MainPhases {
 			smartpi.ReadPhase(device, config, p, &readouts)
-			accumulator.Current[p] += readouts.Current[p] / (60.0 * float64(config.Samplerate))
-			accumulator.Voltage[p] += readouts.Voltage[p] / (60.0 * float64(config.Samplerate))
-			accumulator.ActiveWatts[p] += readouts.ActiveWatts[p] / (60.0 * float64(config.Samplerate))
-			accumulator.CosPhi[p] += readouts.CosPhi[p] / (60.0 * float64(config.Samplerate))
-			accumulator.Frequency[p] += readouts.Frequency[p] / (60.0 * float64(config.Samplerate))
+			accumulator.Current[p] += readouts.Current[p] / (float64(config.Samplerate))
+			accumulator.Voltage[p] += readouts.Voltage[p] / (float64(config.Samplerate))
+			accumulator.ActiveWatts[p] += readouts.ActiveWatts[p] / (float64(config.Samplerate))
+			accumulator.CosPhi[p] += readouts.CosPhi[p] / (float64(config.Samplerate))
+			accumulator.Frequency[p] += readouts.Frequency[p] / (float64(config.Samplerate))
 
 			if readouts.ActiveWatts[p] >= 0 {
-				accumulator.WattHoursConsumed[p] += math.Abs(readouts.ActiveWatts[p]) / (3600.0 * float64(config.Samplerate))
+				accumulator.WattHoursConsumed[p] += math.Abs(readouts.ActiveWatts[p]) / (60.0 * float64(config.Samplerate))
 			} else {
-				accumulator.WattHoursProduced[p] += math.Abs(readouts.ActiveWatts[p]) / (3600.0 * float64(config.Samplerate))
+				accumulator.WattHoursProduced[p] += math.Abs(readouts.ActiveWatts[p]) / (60.0 * float64(config.Samplerate))
 			}
-			wattHourBalanced += readouts.ActiveWatts[p] / (3600.0 * float64(config.Samplerate))
+			wattHourBalanced += readouts.ActiveWatts[p] / (60.0 * float64(config.Samplerate))
 		}
 
 		// Update metrics endpoint.
@@ -138,7 +138,7 @@ func pollSmartPi(config *smartpi.Config, device *i2c.Device) {
 		}
 
 		// Every 60 seconds.
-		if i == (60*config.Samplerate - 1) {
+		if i == (config.Samplerate - 1) {
 
 			// balanced value
 			var wattHourBalanced60s float64
