@@ -325,7 +325,7 @@ func InitADE7878(c *Config) (*i2c.Device, error) {
 	err = WriteRegister(d, "AIRMSOS", 0x0F, 0xFD, 0x40, 0xE0)
 	if err != nil {
 		panic(err)
-	
+	}
 	
 	time.Sleep(10 * time.Millisecond)
 	
