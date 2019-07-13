@@ -158,6 +158,7 @@ func pollSmartPi(config *smartpi.Config, device *i2c.Device) {
 			// Update SQLlite database.
 			if config.DatabaseEnabled {
 				updateSQLiteDatabase(config, accumulator, consumedWattHourBalanced60s, producedWattHourBalanced60s)
+				updateInfluxDatabase(config, accumulator, consumedWattHourBalanced60s, producedWattHourBalanced60s)	
 			}
 
 			consumedCounter = 0.0
