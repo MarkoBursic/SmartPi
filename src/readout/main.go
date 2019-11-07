@@ -89,19 +89,19 @@ func pollSmartPi(config *smartpi.Config, device *i2c.Device) {
 	accumulator := makeReadoutAccumulator()
 	i := 0
 
-	tick := time.Tick(time.Duration(1000) * time.Millisecond)
+	tick := time.Tick(time.Duration(1000) * time.Millisecond) //tick every second
 
 	for {
 		readouts := makeReadout()
-		// Restart the accumulator loop every 60 seconds.
-		if i > (config.Samplerate - 1) {
+		// Restart the accumulator loop every config.Samplerate in seconds.
+		if (i%config.Samplerate == 0) {
 			i = 0
 			accumulator = makeReadoutAccumulator()
 		}
 
 		startTime := time.Now()
 
-		// Update readouts and the accumlator.
+		// Update readouts and the accumlator every tick (second).
 		smartpi.ReadPhase(device, config, smartpi.PhaseN, &readouts)
 		accumulator.Current[smartpi.PhaseN] += readouts.Current[smartpi.PhaseN] / (float64(config.Samplerate))
 		for _, p = range smartpi.MainPhases {
@@ -137,8 +137,8 @@ func pollSmartPi(config *smartpi.Config, device *i2c.Device) {
 			wattHourBalanced = 0
 		}
 
-		// Every 60 seconds.
-		if i == (config.Samplerate - 1) {
+		// Every config.Samplerate in seconds
+		if (i%config.Samplerate == 0) {
 
 			// balanced value
 			var wattHourBalanced60s float64
@@ -182,7 +182,7 @@ func pollSmartPi(config *smartpi.Config, device *i2c.Device) {
 			}
 		}
 
-		delay := time.Since(startTime) - (time.Duration(1000/config.Samplerate) * time.Millisecond)
+		delay := time.Since(startTime) - (time.Duration(1000) * time.Millisecond)
 		if int64(delay) > 0 {
 			log.Errorf("Readout delayed: %s", delay)
 		}
