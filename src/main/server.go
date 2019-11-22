@@ -40,8 +40,8 @@ import (
 	"github.com/gorilla/context"
 	"github.com/gorilla/mux"
 	"github.com/nDenerserve/SmartPi/src/smartpi"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/common/version"
+//	"github.com/prometheus/client_golang/prometheus"
+//	"github.com/prometheus/common/version"
 	// "golang.org/x/net/context"
 )
 
@@ -132,7 +132,7 @@ func BasicAuth(realm string, handler http.HandlerFunc, c *smartpi.Config, u *sma
 }
 
 func init() {
-	prometheus.MustRegister(version.NewCollector("smartpi"))
+	//prometheus.MustRegister(version.NewCollector("smartpi"))
 }
 
 var appVersion = "No Version Provided"
@@ -186,7 +186,7 @@ func main() {
 	// r.HandleFunc("/api/config/network/wifi/active/{name}", BasicAuth("Please enter your username and password for this site", smartpi.DeactivateWifi, config, user, "smartpiadmin")).Methods("DELETE")
 	// r.HandleFunc("/api/config/network/wifi/security/change/key", BasicAuth("Please enter your username and password for this site", smartpi.ChangeWifiKey, config, user, "smartpiadmin")).Methods("POST")
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir(config.DocRoot)))
-	http.Handle("/metrics", prometheus.Handler())
-	http.Handle("/", prometheus.InstrumentHandler("smartpi", r))
+	//http.Handle("/metrics", prometheus.Handler())
+	//http.Handle("/", prometheus.InstrumentHandler("smartpi", r))
 	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(config.WebserverPort), nil))
 }
