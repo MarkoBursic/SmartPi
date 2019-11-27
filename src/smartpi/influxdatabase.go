@@ -8,7 +8,7 @@ import (
 	"time"
 
 	client "github.com/influxdata/influxdb1-client/v2"
-	"github.com/nDenerserve/SmartPi/src/smartpi/network"
+	"github.com/MarkoBursic/SmartPi/src/smartpi/network"
 	log "github.com/sirupsen/logrus"
 )
 
