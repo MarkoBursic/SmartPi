@@ -19,7 +19,7 @@ influxpassword="smart4pi"
 
 [device]
 samplerate=1
-i2c_device="/dev/i2c-1"
+i2c_device="/dev/i2c-7"
 power_frequency=50
 ct_type_1=YHDC_SCT013
 ct_type_2=YHDC_SCT013
@@ -53,8 +53,8 @@ timeformat=2006-01-02 15:04:05
 
 [webserver]
 shared_file_enabled=true
-shared_dir="/var/run"
-shared_file="smartpi_values"
+shared_dir="/var/tmp/smartpi"
+shared_file="values"
 port=1080
 docroot="/var/smartpi/www"
 
