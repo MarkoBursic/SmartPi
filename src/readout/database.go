@@ -31,7 +31,7 @@ func updateSQLiteDatabase(c *smartpi.Config, data smartpi.ReadoutAccumulator, co
 func updateInfluxDatabase(c *smartpi.Config, data smartpi.ReadoutAccumulator, consumedWattHourBalanced float64, producedWattHourBalanced float64) {
 	t := time.Now()
 
-	logLine := "## SQLITE Database Update ##"
+	logLine := "## Influx Database Update ##"
 	logLine += fmt.Sprintf(t.Format(" 2006-01-02 15:04:05 "))
 	// logLine += dbFileName
 	log.Info(logLine)
