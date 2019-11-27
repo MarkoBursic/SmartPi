@@ -42,7 +42,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/nDenerserve/SmartPi/src/smartpi/network"
+	"github.com/MarkoBursic/SmartPi/src/smartpi/network"
 )
 
 func Index(w http.ResponseWriter, r *http.Request) {
