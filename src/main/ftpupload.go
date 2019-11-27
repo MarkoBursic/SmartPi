@@ -30,7 +30,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"github.com/nDenerserve/SmartPi/src/smartpi"
+	"github.com/MarkoBursic/SmartPi/src/smartpi"
 	"github.com/secsy/goftp"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
