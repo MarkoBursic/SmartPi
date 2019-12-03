@@ -19,7 +19,7 @@ require (
 	github.com/mattn/go-isatty v0.0.5
 	github.com/mattn/go-sqlite3 v1.10.0
 	github.com/msteinert/pam v0.0.0-20190215180659-f29b9f28d6f9
-	github.com/nDenerserve/mbserver v0.0.0-20190424130445-5ba17eeab6ce
+	github.com/MarkoBursic/mbserver v0.0.0-20190424130445-5ba17eeab6ce
 	github.com/nathan-osman/go-rpigpio v0.0.0-20160701025123-bce6190607da
 	github.com/oleiade/reflections v0.0.0-20160817071559-0e86b3c98b2f
 	github.com/pmezard/go-difflib v1.0.0
