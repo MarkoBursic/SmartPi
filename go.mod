@@ -1,4 +1,4 @@
-module github.com/nDenerserve/SmartPi
+module github.com/MarkoBursic/SmartPi
 
 require (
 	github.com/bgentry/speakeasy v0.1.0 // indirect
