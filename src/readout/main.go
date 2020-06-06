@@ -45,8 +45,9 @@ import (
 	//import the Paho Go MQTT library
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 
-	//"github.com/prometheus/client_golang/prometheus"
-	//"github.com/prometheus/common/version"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/common/version"
 )
 
 func makeReadoutAccumulator() (r smartpi.ReadoutAccumulator) {
@@ -121,7 +122,7 @@ func pollSmartPi(config *smartpi.Config, device *i2c.Device) {
 		}
 
 		// Update metrics endpoint.
-	//	updatePrometheusMetrics(&readouts)
+		updatePrometheusMetrics(&readouts)
 
 		// Every sample
 		if i%1 == 0 {
@@ -229,15 +230,15 @@ func init() {
 	log.SetOutput(os.Stdout)
 	log.SetLevel(log.DebugLevel)
 
-//	prometheus.MustRegister(currentMetric)
-//	prometheus.MustRegister(voltageMetric)
-//	prometheus.MustRegister(activePowerMetirc)
-//	prometheus.MustRegister(cosphiMetric)
-//	prometheus.MustRegister(frequencyMetric)
-//	prometheus.MustRegister(apparentPowerMetric)
-//	prometheus.MustRegister(reactivePowerMetric)
-//	prometheus.MustRegister(powerFactorMetric)
-//	prometheus.MustRegister(version.NewCollector("smartpi"))
+	prometheus.MustRegister(currentMetric)
+	prometheus.MustRegister(voltageMetric)
+	prometheus.MustRegister(activePowerMetirc)
+	prometheus.MustRegister(cosphiMetric)
+	prometheus.MustRegister(frequencyMetric)
+	prometheus.MustRegister(apparentPowerMetric)
+	prometheus.MustRegister(reactivePowerMetric)
+	prometheus.MustRegister(powerFactorMetric)
+	prometheus.MustRegister(version.NewCollector("smartpi"))
 }
 
 var appVersion = "No Version Provided"
@@ -266,16 +267,16 @@ func main() {
 
 	go pollSmartPi(config, device)
 
-//	http.Handle("/metrics", prometheus.Handler())
-//	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-//		w.Write([]byte(`<html>
-//            <head><title>SmartPi Readout Metrics Server</title></head>
-//            <body>
-//            <h1>SmartPi Readout Metrics Server</h1>
-//            <p><a href="/metrics">Metrics</a></p>
-//            </body>
-//            </html>`))
-//	})
+	http.Handle("/metrics", promhttp.Handler())
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`<html>
+            <head><title>SmartPi Readout Metrics Server</title></head>
+            <body>
+            <h1>SmartPi Readout Metrics Server</h1>
+            <p><a href="/metrics">Metrics</a></p>
+            </body>
+            </html>`))
+	})
 
 	log.Debugf("Listening on %s", listenAddress)
 	if err := http.ListenAndServe(listenAddress, nil); err != nil {
