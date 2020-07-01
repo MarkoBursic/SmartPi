@@ -12,14 +12,14 @@
     You should have received a copy of the GNU General Public License
     along with SmartPi.  If not, see <http://www.gnu.org/licenses/>.
     Diese Datei ist Teil von SmartPi.
-    SmartPi ist Freie Software: Sie können es unter den Bedingungen
+    SmartPi ist Freie Software: Sie kÃ¶nnen es unter den Bedingungen
     der GNU General Public License, wie von der Free Software Foundation,
-    Version 3 der Lizenz oder (nach Ihrer Wahl) jeder späteren
-    veröffentlichten Version, weiterverbreiten und/oder modifizieren.
-    SmartPi wird in der Hoffnung, dass es nützlich sein wird, aber
-    OHNE JEDE GEWÄHRLEISTUNG, bereitgestellt; sogar ohne die implizite
-    Gewährleistung der MARKTFÄHIGKEIT oder EIGNUNG FÜR EINEN BESTIMMTEN ZWECK.
-    Siehe die GNU General Public License für weitere Details.
+    Version 3 der Lizenz oder (nach Ihrer Wahl) jeder spÃ¤teren
+    verÃ¶ffentlichten Version, weiterverbreiten und/oder modifizieren.
+    SmartPi wird in der Hoffnung, dass es nÃ¼tzlich sein wird, aber
+    OHNE JEDE GEWÃ„HRLEISTUNG, bereitgestellt; sogar ohne die implizite
+    GewÃ¤hrleistung der MARKTFÃ„HIGKEIT oder EIGNUNG FÃœR EINEN BESTIMMTEN ZWECK.
+    Siehe die GNU General Public License fÃ¼r weitere Details.
     Sie sollten eine Kopie der GNU General Public License zusammen mit diesem
     Programm erhalten haben. Wenn nicht, siehe <http://www.gnu.org/licenses/>.
 */
@@ -153,6 +153,24 @@ func DeviceFetchInt(d *i2c.Device, l int, cmd []byte) int64 {
 	return result
 }
 
+// Fetch a number of bytes from the device and convert it to an int.
+func DeviceFetchUint32(d *i2c.Device, cmd []byte) uint32 {
+	startTime := time.Now()
+	err := d.Write(cmd)
+	if err != nil {
+		panic(err)
+	}
+	data := make([]byte, 4)
+	err = d.Read(data)
+	if err != nil {
+		panic(err)
+	}
+	var result uint32
+	result = uint32(binary.BigEndian.Uint32(data))
+	log.Debugf("DeviceFetchInt: %s cmd: %x data: %x result: %d", time.Since(startTime), cmd, data, result)
+	return result
+}
+
 func resetADE7878() {
 	println("RESET")
 	p, err := rpi.OpenPin(4, rpi.OUT)
@@ -185,6 +203,7 @@ func InitADE7878(c *Config) (*i2c.Device, error) {
 	if err != nil {
 		panic(err)
 	}
+	value := make([]byte, 4)
 
 	// 0xEC01 (CONFIG2-REGISTER)
 	// 00000010 --> I2C-Lock
@@ -193,12 +212,14 @@ func InitADE7878(c *Config) (*i2c.Device, error) {
 	if err != nil {
 		panic(err)
 	}
+	time.Sleep(10 * time.Millisecond)
 
 	// 0xE1
 	err = d.Write([]byte{0xEC})
 	if err != nil {
 		panic(err)
 	}
+	time.Sleep(10 * time.Millisecond)
 
 	// Read i2cLock
 	i2cLock := make([]byte, 1)
@@ -206,181 +227,336 @@ func InitADE7878(c *Config) (*i2c.Device, error) {
 	if err != nil {
 		panic(err)
 	}
+	time.Sleep(10 * time.Millisecond)
 
-	// 0xE7FE writeprotection
-	err = d.Write([]byte{0xE7, 0xFE, 0xAD})
-	if err != nil {
-		panic(err)
-	}
-
-	// 0xE7E3 writeprotection OFF
-	err = d.Write([]byte{0xE7, 0xE3, 0x00})
-	if err != nil {
-		panic(err)
-	}
-
-	// // 0x43B6 (HPFDIS-REGISTER)
-	// err = d.Write(append(ADE7878REG["HPFDIS"], 0x00, 0x00, 0x00, 0x00})
-	// if err != nil {
-	//     panic(err)
-	// }
-
-	// 0x43B5 (DICOEFF-REGISTER)
-	err = WriteRegister(d, "DICOEFF", 0xFF, 0xFF, 0x80, 0x00)
-	if err != nil {
-		panic(err)
-	}
-
-	if c.Integrator == true {
-
-		// 0xE618 (CONFIG-REGISTER)
-		err = WriteRegister(d, "CONFIG", 0x00, 0x01)
+	for {
+		// 0xE7FE writeprotection
+		err = d.Write([]byte{0xE7, 0xFE, 0xAD})
 		if err != nil {
 			panic(err)
 		}
+		time.Sleep(1 * time.Millisecond)
+
+		// 0xE7E3 writeprotection OFF
+		err = d.Write([]byte{0xE7, 0xE3, 0x00})
+		if err != nil {
+			panic(err)
+		}
+		time.Sleep(1 * time.Millisecond)
+		// xVGAIN, empirical solution
+		// resistor divider 1:1121 (R1= 4 x 280k , R2=1k)  +/-0.5Vpp*1121= +/-560.5Vpp
+		//+/-0.5V @ +/-5,928,256
+		// (560.5 * 10000)/ 5,928,256 = 1 + xVGAIN/2^23
+		// 0.945471990413369463 = 1 + xVGAIN/2^23
+		// xVGAIN = -0.054528009586630536 * 2^23
+		// xVGAIN = -457,414 = FFF9 053A (hex) pad 4 MSB bits with 0 = 0FF9 053A
+		//
+		// 0x4381 (AVGAIN-REGISTER)
+		//err = WriteRegister(d, "AVGAIN", 0xFF, 0xFC, 0x1C, 0xC2)  -254782, 1+ -254782/2^23 = 0,9696276187896728515625
+		//var AVGAIN_value uint32 = 0x0FFABDAD
+		var AVGAIN_value uint32 = 0x0FFABDAD
+		binary.BigEndian.PutUint32(value[0:], AVGAIN_value)
+		err = d.Write(append(ADE7878REG["AVGAIN"], value...))
+		if err != nil {
+			panic(err)
+		}
+		time.Sleep(200 * time.Microsecond)
+
+		// 0x4383 (BVGAIN-REGISTER)
+		//err = WriteRegister(d, "BVGAIN", 0xFF, 0xFB, 0xCA, 0x60)
+		var BVGAIN_value uint32 = 0x0FFABDAD
+		binary.BigEndian.PutUint32(value[0:], BVGAIN_value)
+		err = d.Write(append(ADE7878REG["BVGAIN"], value...))
+		// err = WriteRegister(d, "BVGAIN", 0xFF, 0xFC, 0x1C, 0xC2)
+		if err != nil {
+			panic(err)
+		}
+		time.Sleep(200 * time.Microsecond)
+
+		// 0x4385 (CVGAIN-REGISTER)
+		//err = WriteRegister(d, "CVGAIN", 0xFF, 0xFC, 0x12, 0xDE)
+		// err = WriteRegister(d, "CVGAIN", 0xFF, 0xFC, 0x1C, 0xC2)
+		var CVGAIN_value uint32 = 0x0FFABDAD
+		binary.BigEndian.PutUint32(value[0:], CVGAIN_value)
+		err = d.Write(append(ADE7878REG["CVGAIN"], value...))
+		if err != nil {
+			panic(err)
+		}
+		time.Sleep(200 * time.Microsecond)
+
+		var AIRMSOS_value uint32 = 0x0FFD40E0
+		binary.BigEndian.PutUint32(value[0:], AIRMSOS_value)
+		err = d.Write(append(ADE7878REG["AIRMSOS"], value...))
+		if err != nil {
+			panic(err)
+		}
+		time.Sleep(200 * time.Microsecond)
+
+		var AVRMSOS_value uint32 = 0x0FFD40E0
+		binary.BigEndian.PutUint32(value[0:], AVRMSOS_value)
+		err = d.Write(append(ADE7878REG["AVRMSOS"], value...))
+		if err != nil {
+			panic(err)
+		}
+		time.Sleep(200 * time.Microsecond)
+
+		var BIRMSOS_value uint32 = 0x0FFD40E0
+		binary.BigEndian.PutUint32(value[0:], BIRMSOS_value)
+		err = d.Write(append(ADE7878REG["BIRMSOS"], value...))
+		if err != nil {
+			panic(err)
+		}
+		time.Sleep(200 * time.Microsecond)
+
+		var BVRMSOS_value uint32 = 0x0FFD40E0
+		binary.BigEndian.PutUint32(value[0:], BVRMSOS_value)
+		err = d.Write(append(ADE7878REG["BVRMSOS"], value...))
+		if err != nil {
+			panic(err)
+		}
+		time.Sleep(200 * time.Microsecond)
+
+		var CIRMSOS_value uint32 = 0x0FFD40E0
+		binary.BigEndian.PutUint32(value[0:], CIRMSOS_value)
+		err = d.Write(append(ADE7878REG["CIRMSOS"], value...))
+		if err != nil {
+			panic(err)
+		}
+		time.Sleep(200 * time.Microsecond)
+
+		var CVRMSOS_value uint32 = 0x0FFD40E0
+		binary.BigEndian.PutUint32(value[0:], CVRMSOS_value)
+		err = d.Write(append(ADE7878REG["CVRMSOS"], value...))
+		if err != nil {
+			panic(err)
+		}
+		time.Sleep(200 * time.Microsecond)
+
+		var NIRMSOS_value uint32 = 0x0FFD40E0
+		binary.BigEndian.PutUint32(value[0:], NIRMSOS_value)
+		err = d.Write(append(ADE7878REG["NIRMSOS"], value...))
+		if err != nil {
+			panic(err)
+		}
+		time.Sleep(200 * time.Microsecond)
+
+		// // 0x43AD (VARTHR1-REGISTER)
+		// err = d.Write(append(ADE7878REG["VARTHR1"], 0x17, 0x85, 0x60, 0x16))
+		// if err != nil {
+		//     panic(err)
+		// }
+		//
+		// // 0x43AE (VARTHR0-REGISTER)
+		// err = d.Write(append(ADE7878REG["VARTHR0"], 0x17, 0x85, 0x60, 0x16))
+		// if err != nil {
+		//     panic(err)
+		// }
+		//
+		// // 0x43A9 (VATHR1-REGISTER)
+		// err = d.Write(append(ADE7878REG["VATHR1"], 0x17, 0x85, 0x60, 0x16))
+		// if err != nil {
+		//     panic(err)
+		// }
+		//
+		// // 0x43AA (VATHR0-REGISTER)
+		// err = d.Write(append(ADE7878REG["VATHR0"], 0x17, 0x85, 0x60, 0x16))
+		// if err != nil {
+		//     panic(err)
+		// }
+
+		//0x43AB (WTHR1-REGISTER)
+		err = WriteRegister(d, "WTHR1", 0x00, 0x00, 0x00, 0x17)
+		if err != nil {
+			panic(err)
+		}
+		time.Sleep(200 * time.Microsecond)
+
+		//0x43AC (WTHR0-REGISTER)
+		err = WriteRegister(d, "WTHR0", 0x00, 0x85, 0x60, 0x16)
+		if err != nil {
+			panic(err)
+		}
+		time.Sleep(200 * time.Microsecond)
+
+		// 0x43B3 (VLEVEL-REGISTER)
+		err = WriteRegister(d, "VLEVEL", 0x00, 0x0C, 0xEC, 0x85)
+		if err != nil {
+			panic(err)
+		}
+		time.Sleep(200 * time.Microsecond)
+
+		// 0x43B5 (DICOEFF-REGISTER)
+		err = WriteRegister(d, "DICOEFF", 0xFF, 0xFF, 0x80, 0x00)
+		if err != nil {
+			panic(err)
+		}
+		time.Sleep(200 * time.Microsecond)
+
+		// // 0x43B6 (HPFDIS-REGISTER)
+		// err = d.Write(append(ADE7878REG["HPFDIS"], 0x00, 0x00, 0x00, 0x00})
+		// if err != nil {
+		//     panic(err)
+		// }
+
+		// Line cycle mode count
+		// 0xE60C LINECYC
+		err = WriteRegister(d, "LINECYC", 0xC8)
+		if err != nil {
+			panic(err)
+		}
+		time.Sleep(200 * time.Microsecond)
+
+		// Set the right power frequency to the COMPMODE-REGISTER.
+		// 0xE60E (COMPMODE-REGISTER)
+		if c.PowerFrequency == 60 {
+			// 0x41FF 60Hz
+			err = WriteRegister(d, "COMPMODE", 0x41, 0xFF)
+		} else {
+			// 0x01FF 50Hz
+			err = WriteRegister(d, "COMPMODE", 0x01, 0xFF)
+		}
+		if err != nil {
+			panic(err)
+		}
+		time.Sleep(200 * time.Microsecond)
+
+		//Last RAM register write it  3x times
+
+		if c.Integrator == true {
+
+			// 0xE618 (CONFIG-REGISTER)
+			err = WriteRegister(d, "CONFIG", 0x00, 0x01)
+			if err != nil {
+				panic(err)
+			}
+			time.Sleep(200 * time.Microsecond)
+
+		}
+
+		if c.Integrator == true {
+
+			// 0xE618 (CONFIG-REGISTER)
+			err = WriteRegister(d, "CONFIG", 0x00, 0x01)
+			if err != nil {
+				panic(err)
+			}
+
+		}
+		time.Sleep(200 * time.Microsecond)
+
+		if c.Integrator == true {
+
+			// 0xE618 (CONFIG-REGISTER)
+			err = WriteRegister(d, "CONFIG", 0x00, 0x01)
+			if err != nil {
+				panic(err)
+			}
+
+		}
+		time.Sleep(200 * time.Microsecond)
+
+		//END RAM registers
+
+		// Line cycle mode
+		// 0xE702 LCYCMODE
+		err = WriteRegister(d, "LCYCMODE", 0x0F)
+		if err != nil {
+			panic(err)
+		}
+		time.Sleep(200 * time.Microsecond)
+
+		// 0xE7FE writeprotection
+		err = d.Write([]byte{0xE7, 0xFE, 0xAD})
+		if err != nil {
+			panic(err)
+		}
+		time.Sleep(200 * time.Microsecond)
+
+		// 0xE7E3 writeprotection
+		err = d.Write([]byte{0xE7, 0xE3, 0x80})
+		if err != nil {
+			panic(err)
+		}
+		time.Sleep(200 * time.Microsecond)
+
+		var ConditionOK bool = true
+		var outcome uint32
+
+		outcome = DeviceFetchUint32(d, ADE7878REG["AVGAIN"])
+		if outcome != AVGAIN_value {
+			ConditionOK = false
+			fmt.Printf("AVGAIN %X\n", outcome)
+		}
+
+		outcome = DeviceFetchUint32(d, ADE7878REG["BVGAIN"])
+		if outcome != BVGAIN_value {
+			ConditionOK = false
+			fmt.Printf("BVGAIN %X\n", outcome)
+		}
+
+		outcome = DeviceFetchUint32(d, ADE7878REG["CVGAIN"])
+		if outcome != CVGAIN_value {
+			ConditionOK = false
+			fmt.Printf("CVGAIN %X\n", outcome)
+		}
+
+		outcome = DeviceFetchUint32(d, ADE7878REG["AIRMSOS"])
+		if outcome != AIRMSOS_value {
+			ConditionOK = false
+			fmt.Printf("AIRMSOS %X\n", outcome)
+		}
+
+		outcome = DeviceFetchUint32(d, ADE7878REG["AVRMSOS"])
+		if outcome != AVRMSOS_value {
+			ConditionOK = false
+			fmt.Printf("AVRMSOS %X\n", outcome)
+		}
+
+		outcome = DeviceFetchUint32(d, ADE7878REG["BIRMSOS"])
+		if outcome != BIRMSOS_value {
+			ConditionOK = false
+			fmt.Printf("BIRMSOS %X\n", outcome)
+		}
+
+		outcome = DeviceFetchUint32(d, ADE7878REG["BVRMSOS"])
+		if outcome != BVRMSOS_value {
+			ConditionOK = false
+			fmt.Printf("BVRMSOS %X\n", outcome)
+		}
+
+		outcome = DeviceFetchUint32(d, ADE7878REG["CIRMSOS"])
+		if outcome != CIRMSOS_value {
+			ConditionOK = false
+			fmt.Printf("CIRMSOS %X\n", outcome)
+		}
+
+		outcome = DeviceFetchUint32(d, ADE7878REG["CVRMSOS"])
+		if outcome != CVRMSOS_value {
+			ConditionOK = false
+			fmt.Printf("CVRMSOS %X\n", outcome)
+		}
+
+		outcome = DeviceFetchUint32(d, ADE7878REG["NIRMSOS"])
+		if outcome != NIRMSOS_value {
+			ConditionOK = false
+			fmt.Printf("NIRMSOS %X\n", outcome)
+		}
+
+		// this breaks endless for loop
+		if ConditionOK {
+			fmt.Printf("Configuration passed \n")
+			break
+		} else {
+			fmt.Printf("Repeating configuration \n")
+		}
 
 	}
-
-	// Set the right power frequency to the COMPMODE-REGISTER.
-	// 0xE60E (COMPMODE-REGISTER)
-	if c.PowerFrequency == 60 {
-		// 0x41FF 60Hz
-		err = WriteRegister(d, "COMPMODE", 0x41, 0xFF)
-	} else {
-		// 0x01FF 50Hz
-		err = WriteRegister(d, "COMPMODE", 0x01, 0xFF)
-	}
-	if err != nil {
-		panic(err)
-	}
-
-	//0x43AB (WTHR1-REGISTER)
-	err = WriteRegister(d, "WTHR1", 0x00, 0x00, 0x00, 0x17)
-	if err != nil {
-		panic(err)
-	}
-
-	//0x43AC (WTHR0-REGISTER)
-	err = WriteRegister(d, "WTHR0", 0x00, 0x85, 0x60, 0x16)
-	if err != nil {
-		panic(err)
-	}
-
-	// // 0x43AD (VARTHR1-REGISTER)
-	// err = d.Write(append(ADE7878REG["VARTHR1"], 0x17, 0x85, 0x60, 0x16))
-	// if err != nil {
-	//     panic(err)
-	// }
-	//
-	// // 0x43AE (VARTHR0-REGISTER)
-	// err = d.Write(append(ADE7878REG["VARTHR0"], 0x17, 0x85, 0x60, 0x16))
-	// if err != nil {
-	//     panic(err)
-	// }
-	//
-	// // 0x43A9 (VATHR1-REGISTER)
-	// err = d.Write(append(ADE7878REG["VATHR1"], 0x17, 0x85, 0x60, 0x16))
-	// if err != nil {
-	//     panic(err)
-	// }
-	//
-	// // 0x43AA (VATHR0-REGISTER)
-	// err = d.Write(append(ADE7878REG["VATHR0"], 0x17, 0x85, 0x60, 0x16))
-	// if err != nil {
-	//     panic(err)
-	// }
-
-	// 0x43B3 (VLEVEL-REGISTER)
-	err = WriteRegister(d, "VLEVEL", 0x00, 0x0C, 0xEC, 0x85)
-	if err != nil {
-		panic(err)
-	}
-
-	time.Sleep(875 * time.Millisecond)
-
-	// // 0x4381 (AVGAIN-REGISTER)
-	// outcome := DeviceFetchInt(d, 4, ADE7878REG["AVGAIN"])
-	// fmt.Printf("AVGAIN-REGISTER VORHER%g   %x %x %x %x \n", outcome, data[0], data[1], data[2], data[3])
-
-	// 0x4381 (AVGAIN-REGISTER)
-	err = WriteRegister(d, "AVGAIN", 0xFF, 0xFC, 0x1C, 0xC2)
-	if err != nil {
-		panic(err)
-	}
-
-	// 0x4383 (BVGAIN-REGISTER)
-	err = WriteRegister(d, "BVGAIN", 0xFF, 0xFB, 0xCA, 0x60)
-	// err = WriteRegister(d, "BVGAIN", 0xFF, 0xFC, 0x1C, 0xC2)
-	if err != nil {
-		panic(err)
-	}
-
-	// 0x4385 (CVGAIN-REGISTER)
-	err = WriteRegister(d, "CVGAIN", 0xFF, 0xFC, 0x12, 0xDE)
-	// err = WriteRegister(d, "CVGAIN", 0xFF, 0xFC, 0x1C, 0xC2)
-	if err != nil {
-		panic(err)
-	}
-
-	err = WriteRegister(d, "AIRMSOS", 0x0F, 0xFD, 0x40, 0xE0)
-	if err != nil {
-		panic(err)
-	}
-	
-	time.Sleep(10 * time.Millisecond)
-	
-	err = WriteRegister(d, "BIRMSOS", 0x0F, 0xFD, 0x40, 0xE0)
-	if err != nil {
-		panic(err)
-	}	
-	
-	time.Sleep(10 * time.Millisecond)
-	
-	err = WriteRegister(d, "CIRMSOS", 0x0F, 0xFD, 0x40, 0xE0)
-	if err != nil {
-		panic(err)
-	}
-	
-	time.Sleep(10 * time.Millisecond)
-	
-	err = WriteRegister(d, "NIRMSOS", 0x0F, 0xFD, 0x40, 0xE0)
-	if err != nil {
-		panic(err)
-	}
-	
-	time.Sleep(10 * time.Millisecond)
-
-	// Line cycle mode
-	// 0xE702 LCYCMODE
-	err = WriteRegister(d, "LCYCMODE", 0x0F)
-	if err != nil {
-		panic(err)
-	}
-
-	// Line cycle mode count
-	// 0xE60C LINECYC
-	err = WriteRegister(d, "LINECYC", 0xC8)
-	if err != nil {
-		panic(err)
-	}
-
-	// 0xE7FE writeprotection
-	err = d.Write([]byte{0xE7, 0xFE, 0xAD})
-	if err != nil {
-		panic(err)
-	}
-
-	// 0xE7E3 writeprotection
-	err = d.Write([]byte{0xE7, 0xE3, 0x80})
-	if err != nil {
-		panic(err)
-	}
-
 	// 0xE228 (RUN-Register)
 	err = WriteRegister(d, "RUN", 0x00, 0x01)
 	if err != nil {
 		panic(err)
 	}
+	time.Sleep(1200 * time.Millisecond)
 
 	return d, nil
 }
@@ -391,11 +567,11 @@ func ReadCurrent(d *i2c.Device, c *Config, phase Phase) (current float64) {
 	case PhaseA:
 		command = ADE7878REG["AIRMS"] // 0x43C0 (AIRMS; Current rms an A)
 	case PhaseB:
-		command = ADE7878REG["BIRMS"] // 0x43C2 (AIRMS; Current rms an B)
+		command = ADE7878REG["BIRMS"] // 0x43C2 (BIRMS; Current rms an B)
 	case PhaseC:
-		command = ADE7878REG["CIRMS"] // 0x43C4 (AIRMS; Current rms an C)
+		command = ADE7878REG["CIRMS"] // 0x43C4 (CIRMS; Current rms an C)
 	case PhaseN:
-		command = ADE7878REG["NIRMS"] // 0x43C6 (AIRMS; Current rms an N)
+		command = ADE7878REG["NIRMS"] // 0x43C6 (NIRMS; Current rms an N)
 	default:
 		panic(fmt.Errorf("Invalid phase %q", phase))
 	}
@@ -434,11 +610,11 @@ func ReadVoltage(d *i2c.Device, c *Config, phase Phase) (voltage float64, measur
 	command := make([]byte, 2)
 	switch phase {
 	case PhaseA:
-		command = []byte{0x43, 0xC1} // 0x43C1 (AVRMS; Voltage RMS phase A)
+		command = ADE7878REG["AVRMS"] // 0x43C1 (AVRMS; Voltage RMS phase A)
 	case PhaseB:
-		command = []byte{0x43, 0xC3} // 0x43C3 (BVRMS; Voltage RMS phase B)
+		command = ADE7878REG["BVRMS"] // 0x43C3 (BVRMS; Voltage RMS phase B)
 	case PhaseC:
-		command = []byte{0x43, 0xC5} // 0x43C5 (BVRMS; Voltage RMS phase C)
+		command = ADE7878REG["CVRMS"] // 0x43C5 (CVRMS; Voltage RMS phase C)
 	default:
 		panic(fmt.Errorf("Invalid phase %q", phase))
 	}
