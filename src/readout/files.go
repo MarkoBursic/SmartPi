@@ -50,12 +50,14 @@ func writeSharedFile(c *smartpi.Config, values *smartpi.ADE7878Readout, balanced
 	timeStamp := t.Format("2006-01-02 15:04:05")
 	logLine := "## Shared File Update ## "
 	logLine += fmt.Sprintf(timeStamp)
-	logLine += fmt.Sprintf(" I1: %s  I2: %s  I3: %s  I4: %s  ", s[0], s[1], s[2], s[3])
-	logLine += fmt.Sprintf("V1: %s  V2: %s  V3: %s  ", s[4], s[5], s[6])
-	logLine += fmt.Sprintf("P1: %s  P2: %s  P3: %s  ", s[7], s[8], s[9])
-	logLine += fmt.Sprintf("COS1: %s  COS2: %s  COS3: %s  ", s[10], s[11], s[12])
-	logLine += fmt.Sprintf("F1: %s  F2: %s  F3: %s  ", s[13], s[14], s[15])
+	logLine += fmt.Sprintf("\n")
+	logLine += fmt.Sprintf(" I1: %s  I2: %s  I3: %s  In: %s  \n", s[0], s[1], s[2], s[3])
+	logLine += fmt.Sprintf("V1: %s  V2: %s  V3: %s  \n", s[4], s[5], s[6])
+	logLine += fmt.Sprintf("P1: %s  P2: %s  P3: %s  \n", s[7], s[8], s[9])
+	logLine += fmt.Sprintf("COS1: %s  COS2: %s  COS3: %s  \n", s[10], s[11], s[12])
+	logLine += fmt.Sprintf("F1: %s  F2: %s  F3: %s  \n", s[13], s[14], s[15])
 	logLine += fmt.Sprintf("Balanced: %s  ", s[16])
+
 	log.Info(logLine)
 	sharedFile := filepath.Join(c.SharedDir, c.SharedFile)
 	if _, err = os.Stat(sharedFile); os.IsNotExist(err) {
